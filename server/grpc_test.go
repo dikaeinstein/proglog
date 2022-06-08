@@ -18,9 +18,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "github.com/dikaeinstein/proglog/api/v1"
+	"github.com/dikaeinstein/proglog/auth"
 	"github.com/dikaeinstein/proglog/config"
-	"github.com/dikaeinstein/proglog/internal/auth"
-	"github.com/dikaeinstein/proglog/internal/log"
+	"github.com/dikaeinstein/proglog/log"
 )
 
 var debug = flag.Bool("debug", false, "Enable observability for debugging.")
