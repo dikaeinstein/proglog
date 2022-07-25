@@ -18,9 +18,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "github.com/dikaeinstein/proglog/api/v1"
-	"github.com/dikaeinstein/proglog/auth"
-	"github.com/dikaeinstein/proglog/config"
-	"github.com/dikaeinstein/proglog/log"
+	"github.com/dikaeinstein/proglog/internal/auth"
+	"github.com/dikaeinstein/proglog/internal/config"
+	"github.com/dikaeinstein/proglog/internal/log"
 )
 
 var debug = flag.Bool("debug", false, "Enable observability for debugging.")
@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestgrpcServerImplementation() {
+func TestGRPCServerImplementation(t *testing.T) {
 	// won't compile if grpcServer does not implement api.LogServer
 	var _ api.LogServer = (*grpcServer)(nil)
 }
@@ -124,7 +124,7 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	dir, err := ioutil.TempDir("", "server-test")
 	require.NoError(t, err)
 
-	clog, err := log.NewLog(dir, log.Config{})
+	clog, err := log.New(dir, log.Config{})
 	require.NoError(t, err)
 
 	authorizer := auth.New(config.ACLModelFile, config.ACLPolicyFile)
@@ -220,8 +220,8 @@ func testConsumePastBoundary(
 		t.Fatal("consume not nil")
 	}
 
-	got := grpc.Code(err)
-	want := grpc.Code(api.ErrOffsetOutOfRange{}.GRPCStatus().Err())
+	got := status.Code(err)
+	want := status.Code(api.ErrOffsetOutOfRange{}.GRPCStatus().Err())
 	if got != want {
 		t.Fatalf("got err: %v, want: %v", got, want)
 	}

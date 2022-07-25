@@ -6,14 +6,14 @@ init:
 
 .PHONY: compile
 compile:
-	go run protoc api/v1/*.proto \
+	protoc api/v1/*.proto \
 		--go_out=. \
 		--go_opt=paths=source_relative \
 		--proto_path=.
 
 .PHONY: compile-grpc
 compile-grpc:
-	go run protoc api/v1/*.proto \
+	protoc api/v1/*.proto \
 		--go_out=. \
 		--go-grpc_out=. \
 		--go_opt=paths=source_relative \

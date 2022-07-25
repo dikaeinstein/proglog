@@ -21,8 +21,8 @@ type Log struct {
 	segments      []*segment
 }
 
-// NewLog create and setup Log instance.
-func NewLog(dir string, c Config) (*Log, error) {
+// New create and setup Log instance.
+func New(dir string, c Config) (*Log, error) {
 	if c.Segment.MaxStoreBytes == 0 {
 		c.Segment.MaxStoreBytes = 1024
 	}

@@ -5,9 +5,10 @@ import (
 	"os"
 	"testing"
 
-	api "github.com/dikaeinstein/proglog/api/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	api "github.com/dikaeinstein/proglog/api/v1"
 )
 
 func TestLog(t *testing.T) {
@@ -26,7 +27,7 @@ func TestLog(t *testing.T) {
 			defer os.RemoveAll(dir)
 			c := Config{}
 			c.Segment.MaxStoreBytes = 32
-			log, err := NewLog(dir, c)
+			log, err := New(dir, c)
 			require.NoError(t, err)
 			fn(t, log)
 		})
@@ -69,7 +70,7 @@ func testInitExisting(t *testing.T, o *Log) {
 	off, err = o.HighestOffset()
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), off)
-	n, err := NewLog(o.Dir, o.Config)
+	n, err := New(o.Dir, o.Config)
 	require.NoError(t, err)
 	off, err = n.LowestOffset()
 	require.NoError(t, err)
