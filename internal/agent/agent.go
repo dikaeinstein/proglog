@@ -69,31 +69,41 @@ func New(config Config) (*Agent, error) {
 		Config:    config,
 		shutdowns: make(chan struct{}),
 	}
-	// START: add_setup_mux
+
 	setup := []func() error{
-		// START_HIGHLIGHT
 		a.setupMux,
-		// END_HIGHLIGHT
 		a.setupLog,
 		a.setupServer,
 		a.setupMembership,
 	}
-	// END: add_setup_mux
+
 	for _, fn := range setup {
 		if err := fn(); err != nil {
 			return nil, err
 		}
 	}
-	// START: new_serve
-	go a.serve()
-	// END: new_serve
+
+	go func() {
+		err := a.serve()
+		if err != nil {
+			fmt.Println("serve failed:", err)
+		}
+	}()
+
 	return a, nil
 }
 
-// START: setup_mux
 func (a *Agent) setupMux() error {
+	addr, err := net.ResolveTCPAddr("tcp", a.Config.BindAddr)
+	if err != nil {
+		return err
+	}
+
+	// creates a listener on our RPC address that’ll accept both Raft and gRPC
+	// connections and then creates the mux with the listener
 	rpcAddr := fmt.Sprintf(
-		":%d",
+		"%s:%d",
+		addr.IP.String(),
 		a.Config.RPCPort,
 	)
 	ln, err := net.Listen("tcp", rpcAddr)
@@ -104,28 +114,30 @@ func (a *Agent) setupMux() error {
 	return nil
 }
 
-// END: setup_mux
-
-// START: setup_log_start
 func (a *Agent) setupLog() error {
 	raftLn := a.mux.Match(func(reader io.Reader) bool {
 		b := make([]byte, 1)
 		if _, err := reader.Read(b); err != nil {
 			return false
 		}
-		return bytes.Compare(b, []byte{byte(log.RaftRPC)}) == 0
+		return bytes.Equal(b, []byte{byte(log.RaftRPC)})
 	})
-	// END: setup_log_start
-	// START: setup_log_end
+
 	logConfig := log.Config{}
 	logConfig.Raft.StreamLayer = log.NewStreamLayer(
 		raftLn,
 		a.Config.ServerTLSConfig,
 		a.Config.PeerTLSConfig,
 	)
+	rpcAddr, err := a.Config.RPCAddr()
+	if err != nil {
+		return err
+	}
+	logConfig.Raft.BindAddr = rpcAddr
 	logConfig.Raft.LocalID = raft.ServerID(a.Config.NodeName)
 	logConfig.Raft.Bootstrap = a.Config.Bootstrap
-	var err error
+	logConfig.Raft.CommitTimeout = 1000 * time.Millisecond
+
 	a.log, err = log.NewDistributedLog(
 		a.Config.DataDir,
 		logConfig,
@@ -138,8 +150,6 @@ func (a *Agent) setupLog() error {
 	}
 	return nil
 }
-
-// END: setup_log_end
 
 func (a *Agent) setupServer() error {
 	authorizer := auth.New(
@@ -161,18 +171,20 @@ func (a *Agent) setupServer() error {
 	if err != nil {
 		return err
 	}
-	// START: setup_server
+
 	grpcLn := a.mux.Match(cmux.Any())
 	go func() {
 		if err := a.server.Serve(grpcLn); err != nil {
-			_ = a.Shutdown()
+			fmt.Println("GRPC serve failed:", err)
+			if err = a.Shutdown(); err != nil {
+				fmt.Println("shutdown failed:", err)
+			}
 		}
 	}()
 	return err
-	// END: setup_server
 }
 
-// START: setup_membership
+// setupMembership
 func (a *Agent) setupMembership() error {
 	rpcAddr, err := a.Config.RPCAddr()
 	if err != nil {
@@ -189,18 +201,16 @@ func (a *Agent) setupMembership() error {
 	return err
 }
 
-// END: setup_membership
-
-// START: serve
 func (a *Agent) serve() error {
 	if err := a.mux.Serve(); err != nil {
-		_ = a.Shutdown()
+		fmt.Println("mux serve failed:", err)
+		if err = a.Shutdown(); err != nil {
+			fmt.Println("shutdown failed:", err)
+		}
 		return err
 	}
 	return nil
 }
-
-// END: serve
 
 func (a *Agent) Shutdown() error {
 	a.shutdownLock.Lock()

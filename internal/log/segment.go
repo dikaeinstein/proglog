@@ -5,8 +5,9 @@ import (
 	"os"
 	"path"
 
-	api "github.com/dikaeinstein/proglog/api/v1"
 	"google.golang.org/protobuf/proto"
+
+	api "github.com/dikaeinstein/proglog/api/v1"
 )
 
 type segment struct {
@@ -25,7 +26,7 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 	storeFile, err := os.OpenFile(
 		path.Join(dir, fmt.Sprintf("%d%s", baseOffset, ".store")),
 		os.O_RDWR|os.O_CREATE|os.O_APPEND,
-		0644,
+		0o644,
 	)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func newSegment(dir string, baseOffset uint64, c Config) (*segment, error) {
 	indexFile, err := os.OpenFile(
 		path.Join(dir, fmt.Sprintf("%d%s", baseOffset, ".index")),
 		os.O_RDWR|os.O_CREATE,
-		0644,
+		0o644,
 	)
 	if err != nil {
 		return nil, err
@@ -96,7 +97,8 @@ func (s *segment) Read(off uint64) (*api.Record, error) {
 // writing too much to the store or the index.
 func (s *segment) IsMaxed() bool {
 	return s.store.size >= s.config.Segment.MaxStoreBytes ||
-		s.index.size >= s.config.Segment.MaxIndexBytes
+		s.index.size >= s.config.Segment.MaxIndexBytes ||
+		s.index.IsMaxed()
 }
 
 // Remove closes the segment and removes the index and store files.

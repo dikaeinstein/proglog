@@ -70,3 +70,13 @@ gencert:
 		test/client-csr.json | cfssljson -bare nobody-client
 
 	mv *.pem *.csr ${CONFIG_PATH}
+
+TAG ?= 0.0.1
+
+build-docker:
+	docker build -t github.com/dikaeinstein/proglog:$(TAG) .
+
+socat:
+	kubectl run --restart=Never --image=alpine/socat socat -- -d -d tcp-listen:8400,fork,reuseaddr tcp-connect:proglog-0.proglog.default.svc.cluster.local:8400
+	kubectl wait --for=condition=Ready pod/socat
+	kubectl port-forward socat 8400
